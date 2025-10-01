@@ -1,65 +1,84 @@
-package server 
-import 
+package ai
 
-(
-  "time"
-"fmt"
-  "net/http"
-  "encoding/json"
-  	"bytes"
-  	"os"
-  "io"
-  )
-  var geminiAPIKey string 
-  func InitAI() error {
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+)
+
+var geminiAPIKey string
+
+// InitAI initializes the AI client with API key from environment
+func InitAI() error {
 	geminiAPIKey = os.Getenv("GEMINI_API_KEY")
 	if geminiAPIKey == "" {
 		return fmt.Errorf("GEMINI_API_KEY environment variable not set")
 	}
 	return nil
 }
-func handleAichatWithContext(apiKey, userPrompt, lobbyName, username string) (string, error) {
-	// Get the appropriate AI guideline for this lobby
-	guideline := getAIPromptForLobby(lobbyName)
 
-	// Get or create conversation history for this lobby
-	conversationsMutex.Lock()
-	conv, exists := lobbyConversations[lobbyName]
+// GetAPIKey returns the current API key (for internal use)
+func GetAPIKey() string {
+	return geminiAPIKey
+}
+
+// HandleAIChat processes AI requests with conversation context
+func HandleAIChat(userPrompt, lobbyName, username string, 
+	conversations map[string]*ConversationHistory, 
+	convMutex interface{}, 
+	getLobbyContextFn func(string) string) (string, error) {
+	
+	if geminiAPIKey == "" {
+		return "", fmt.Errorf("AI not initialized")
+	}
+
+	guideline := GetAIPromptForLobby(lobbyName)
+	
+	// Type assertion for mutex (passed as interface{} to avoid circular import)
+	mutex, ok := convMutex.(interface{ Lock(); Unlock() })
+	if !ok {
+		return "", fmt.Errorf("invalid mutex type")
+	}
+
+	mutex.Lock()
+	conv, exists := conversations[lobbyName]
 	if !exists {
 		conv = &ConversationHistory{
-			messages:   []map[string]interface{}{},
-			lastActive: time.Now(),
+			Messages:   []map[string]interface{}{},
+			LastActive: time.Now(),
 		}
-		lobbyConversations[lobbyName] = conv
+		conversations[lobbyName] = conv
 	}
-	conversationsMutex.Unlock()
+	mutex.Unlock()
 
-	conv.mu.Lock()
-	defer conv.mu.Unlock()
+	conv.Mu.Lock()
+	defer conv.Mu.Unlock()
 
-	// Clear old conversations (after 30 min of inactivity)
-	if time.Since(conv.lastActive) > AIContextTimeout {
-		conv.messages = []map[string]interface{}{}
+	// Clear old conversations
+	if time.Since(conv.LastActive) > AIContextTimeout {
+		conv.Messages = []map[string]interface{}{}
 	}
-	conv.lastActive = time.Now()
+	conv.LastActive = time.Now()
 
-	if len(conv.messages) == 0 {
-		// First interaction - send system prompt
+	if len(conv.Messages) == 0 {
 		systemPrompt := guideline
-
-		// Add lobby context if available
-		lobbyContext := getLobbyContext(lobbyName)
+		lobbyContext := getLobbyContextFn(lobbyName)
 		if lobbyContext != "" {
 			systemPrompt += "\n\n" + lobbyContext
 		}
 
-		conv.messages = append(conv.messages, map[string]interface{}{
+		conv.Messages = append(conv.Messages, map[string]interface{}{
 			"role": "user",
 			"parts": []map[string]string{
 				{"text": systemPrompt},
 			},
 		})
-		conv.messages = append(conv.messages, map[string]interface{}{
+		conv.Messages = append(conv.Messages, map[string]interface{}{
 			"role": "model",
 			"parts": []map[string]string{
 				{"text": "Understood! I'm ready to assist. Beep-boop!"},
@@ -67,34 +86,30 @@ func handleAichatWithContext(apiKey, userPrompt, lobbyName, username string) (st
 		})
 	}
 
-	// Build the user prompt with context
 	fullPrompt := userPrompt
-
-	// Add recent lobby context for better awareness
-	lobbyContext := getLobbyContext(lobbyName)
+	lobbyContext := getLobbyContextFn(lobbyName)
 	if lobbyContext != "" {
 		fullPrompt = lobbyContext + "\n" + username + " asked: " + userPrompt
 	} else {
 		fullPrompt = username + " asked: " + userPrompt
 	}
 
-	// Add user's message
-	conv.messages = append(conv.messages, map[string]interface{}{
+	conv.Messages = append(conv.Messages, map[string]interface{}{
 		"role": "user",
 		"parts": []map[string]string{
 			{"text": fullPrompt},
 		},
 	})
 
-	// Limit history to last 20 messages to avoid token limits
-	if len(conv.messages) > MaxAIContextMessages {
-		conv.messages = conv.messages[len(conv.messages)-20:]
+	if len(conv.Messages) > MaxAIContextMessages {
+		conv.Messages = conv.Messages[len(conv.Messages)-20:]
 	}
-url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", 
-    GeminiModel, apiKey)
+
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
+		GeminiModel, geminiAPIKey)
 
 	payload := map[string]interface{}{
-		"contents": conv.messages,
+		"contents": conv.Messages,
 	}
 
 	jsonData, err := json.Marshal(payload)
@@ -132,8 +147,7 @@ url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:g
 	if len(result.Candidates) > 0 && len(result.Candidates[0].Content.Parts) > 0 {
 		aiResponse := result.Candidates[0].Content.Parts[0].Text
 
-		// Add AI's response to history
-		conv.messages = append(conv.messages, map[string]interface{}{
+		conv.Messages = append(conv.Messages, map[string]interface{}{
 			"role": "model",
 			"parts": []map[string]string{
 				{"text": aiResponse},
@@ -143,4 +157,19 @@ url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:g
 		return aiResponse, nil
 	}
 	return "", fmt.Errorf("no text in response")
+}
+
+// FormatAIError formats AI errors for user display
+func FormatAIError(err error) string {
+	e := err.Error()
+	switch {
+	case strings.Contains(e, "rate limit"):
+		return "AI Error: Rate limit reached. Please wait and try again."
+	case strings.Contains(e, "quota"):
+		return "AI Error: Quota reached. Try later."
+	case strings.Contains(e, "invalid prompt"):
+		return "AI Error: Your prompt is invalid."
+	default:
+		return "AI Error: Please try again later."
+	}
 }

@@ -1,63 +1,48 @@
-package server 
+package models
 
 import (
 	"net"
-
-	"sync"
 	"time"
 )
 
+// Lobby represents a chat room
 type Lobby struct {
-	name      string
-	isPrivate bool
-	password  string
-	creator   string
-	desc string 
-	aiPrompt  string
+	Name      string
+	IsPrivate bool
+	Password  string
+	Creator   string
+	Desc      string
+	AIPrompt  string
 }
 
+// Client represents a connected user
 type Client struct {
-	username     string
-	userProfile  string
-	currentLobby string
-	conn         net.Conn
-	lastMessage  time.Time
-	messageCount int
-	windowStart  time.Time
+	Username     string
+	UserProfile  string
+	CurrentLobby string
+	Conn         net.Conn
+	LastMessage  time.Time
+	MessageCount int
+	WindowStart  time.Time
 }
 
-type ConversationHistory struct {
-	messages   []map[string]interface{}
-	lastActive time.Time
-	mu         sync.RWMutex
-}
-
+// LobbyMessage represents a message in a lobby
 type LobbyMessage struct {
-	username  string
-	text      string
-	userProfile string
-	timestamp time.Time
+	Username    string
+	Text        string
+	UserProfile string
+	Timestamp   time.Time
 }
 
+// LobbyContext stores recent messages for context
 type LobbyContext struct {
-	recentMessages []LobbyMessage
-	mu             sync.RWMutex
+	RecentMessages []LobbyMessage
+	Mu             interface{} // sync.RWMutex
 }
 
 // Message struct for broadcasting
 type Message struct {
-	from Client
-	text string
-	timestamp time.Time
-}
-
-// Response struct for AI API
-type Response struct {
-	Candidates []struct {
-		Content struct {
-			Parts []struct {
-				Text string `json:"text"`
-			} `json:"parts"`
-		} `json:"content"`
-	} `json:"candidates"`
+	From      *Client
+	Text      string
+	Timestamp time.Time
 }

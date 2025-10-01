@@ -1,61 +1,74 @@
-package server
+package middleware
 
 import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
+
+	"chat-server/server/models"
 )
 
-// Rate limiting methods
-func (c *Client) canSendMessage() (bool, string) {
+const (
+	MaxMessagesPerWindow = 5
+	RateLimitWindow      = 10 * time.Second
+	MaxConnectionsPerIP  = 10
+)
+
+var (
+	ipConnections = make(map[string]int)
+	ipMutex       sync.RWMutex
+)
+
+// CanSendMessage checks if client can send a message
+func CanSendMessage(c *models.Client) (bool, string) {
 	now := time.Now()
 
-	// Reset window if it's expired
-	if now.Sub(c.windowStart) > RateLimitWindow {
-		c.messageCount = 0
-		c.windowStart = now
+	if now.Sub(c.WindowStart) > RateLimitWindow {
+		c.MessageCount = 0
+		c.WindowStart = now
 	}
 
-	// Check if too many messages in window
-	if c.messageCount >= MaxMessagesPerWindow {
-		timeLeft := RateLimitWindow - now.Sub(c.windowStart)
+	if c.MessageCount >= MaxMessagesPerWindow {
+		timeLeft := RateLimitWindow - now.Sub(c.WindowStart)
 		return false, fmt.Sprintf("Rate limited! Wait %.0f seconds.", timeLeft.Seconds())
 	}
 	return true, ""
 }
 
-func (c *Client) recordMessage() {
-	c.lastMessage = time.Now()
-	c.messageCount++
+// RecordMessage records a message for rate limiting
+func RecordMessage(c *models.Client) {
+	c.LastMessage = time.Now()
+	c.MessageCount++
 }
 
-// helper function to split Ip for full IP port
-// this is because addr itself contains the port so we need to split,and check if : exit's with the -1
-func getIP(conn net.Conn) string {
+// GetIP extracts IP from connection
+func GetIP(conn net.Conn) string {
 	addr := conn.RemoteAddr().String()
-	// Extract IP without port
 	if idx := strings.LastIndex(addr, ":"); idx != -1 {
 		return addr[:idx]
 	}
 	return addr
 }
 
-func canAcceptConnection(ip string) bool {
+// CanAcceptConnection checks if IP can connect
+func CanAcceptConnection(ip string) bool {
 	ipMutex.Lock()
 	defer ipMutex.Unlock()
-
 	count := ipConnections[ip]
 	return count < MaxConnectionsPerIP
 }
 
-func incrementIPConnection(ip string) {
+// IncrementIPConnection increments IP connection count
+func IncrementIPConnection(ip string) {
 	ipMutex.Lock()
 	defer ipMutex.Unlock()
 	ipConnections[ip]++
 }
 
-func decrementIPConnection(ip string) {
+// DecrementIPConnection decrements IP connection count
+func DecrementIPConnection(ip string) {
 	ipMutex.Lock()
 	defer ipMutex.Unlock()
 	if ipConnections[ip] > 0 {

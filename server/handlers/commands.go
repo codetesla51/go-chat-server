@@ -1,141 +1,144 @@
-package server
+package handlers
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"strings"
-	"log"
+
+	"chat-server/server/ai"
+	"chat-server/server/middleware"
+	"chat-server/server/models"
 )
 
-func handleCommand(conn net.Conn, cmd string, client *Client) {
-	// Allow quit without rate limit
+// CommandHandler holds dependencies for command handling
+type CommandHandler struct {
+	ClientManager *ClientManager
+	LobbyManager  *LobbyManager
+}
+
+// NewCommandHandler creates a new command handler
+func NewCommandHandler(cm *ClientManager, lm *LobbyManager) *CommandHandler {
+	return &CommandHandler{
+		ClientManager: cm,
+		LobbyManager:  lm,
+	}
+}
+
+// HandleCommand processes user commands
+func (h *CommandHandler) HandleCommand(conn net.Conn, cmd string, client *models.Client) {
 	if cmd == "/quit" {
 		conn.Write([]byte(ColorYellow + "Disconnecting from server. Goodbye!\n" + ColorReset))
 		conn.Close()
 		return
 	}
 
-	// Rate limit all other commands
-	canSend, errMsg := client.canSendMessage()
+	canSend, errMsg := middleware.CanSendMessage(client)
 	if !canSend {
 		conn.Write([]byte(ColorRed + "⚠ " + errMsg + ColorReset + "\n"))
 		return
 	}
-	client.recordMessage()
+	middleware.RecordMessage(client)
 
 	switch {
 	case cmd == "/users":
-		showLobbyUsers(conn, client)
+		h.showLobbyUsers(conn, client)
 	case cmd == "/help":
 		showHelpMessage(conn)
 	case strings.HasPrefix(cmd, "/ai "):
-		content := strings.TrimPrefix(cmd, "/ai ")
-		userText := strings.TrimSpace(content)
-		if userText == "" {
-			conn.Write([]byte(ColorRed + "Usage: /ai <your question>\n" + ColorReset))
-			return
-		}
-
-		if len(userText) > MaxMessageLength {
-			conn.Write([]byte(ColorRed + "AI question too long. Max length: 1000 characters\n" + ColorReset))
-			return
-		}
-
-		if geminiAPIKey == "" {
-			conn.Write([]byte(ColorRed + "AI is not available on this server\n" + ColorReset))
-			return
-		}
-
-		conn.Write([]byte(ColorMagenta + "[AI] Thinking...\n" + ColorReset))
-
-		broadcastLobbyMessage(client.currentLobby,
-			fmt.Sprintf("%s%s%s asked AI: %s", ColorCyan, client.username, ColorReset, userText))
-
-reply, err := handleAichatWithContext(geminiAPIKey, userText, client.currentLobby, client.username)
-errMsg := "AI Error: Please try again later." 
-
-if err != nil {
-    log.Printf("AI error for user %s: %v", client.username, err) 
-    e := err.Error()
-    switch {
-    case strings.Contains(e, "rate limit"):
-        errMsg = "AI Error: Rate limit reached. Please wait and try again."
-    case strings.Contains(e, "quota"):
-        errMsg = "AI Error: Quota reached. Try later."
-    case strings.Contains(e, "invalid prompt"):
-        errMsg = "AI Error: Your prompt is invalid."
-    }
-
-    conn.Write([]byte(ColorRed + errMsg + "\n" + ColorReset))
-    return
-}
-		// Broadcast AI response to lobby
-		broadcastLobbyMessage(client.currentLobby,
-			fmt.Sprintf("%s[AI Response to %s]%s\n%s", ColorMagenta, client.username, ColorReset, reply))
-
+		h.handleAICommand(conn, client, cmd)
 	case cmd == "/lobbies":
-		showAllLobbies(conn)
-			case strings.HasPrefix(cmd, "/tag"):
-		content := strings.TrimPrefix(cmd, "/tag ")
-		parts := strings.SplitN(content, " ", 2)
-		if len(parts) < 2 {
-			conn.Write([]byte(ColorRed + "Usage: /tag <username> <message>\n" + ColorReset))
-			return
-		}
-		target := parts[0]
-		message := parts[1]
-		handleTagMessage(client,target, message)
+		h.LobbyManager.ShowAllLobbies(conn)
+	case strings.HasPrefix(cmd, "/tag "):
+		h.handleTagCommand(conn, client, cmd)
 	case strings.HasPrefix(cmd, "/setai "):
-		content := strings.TrimSpace(strings.TrimPrefix(cmd, "/setai "))
-		handleSetAIPrompt(conn, client, content)
+		h.handleSetAI(conn, client, cmd)
 	case strings.HasPrefix(cmd, "/msg "):
-		content := strings.TrimPrefix(cmd, "/msg ")
-		parts := strings.SplitN(content, " ", 2)
-		if len(parts) < 2 {
-			conn.Write([]byte(ColorRed + "Usage: /msg <username> <message>\n" + ColorReset))
-			return
-		}
-		target := parts[0]
-		message := parts[1]
-		handlePrivateMessage(client, target, message)
+		h.handlePrivateMessage(conn, client, cmd)
 	case strings.HasPrefix(cmd, "/create "):
-		content := strings.TrimSpace(strings.TrimPrefix(cmd, "/create "))
-		parts := strings.SplitN(content, " ", 3)
-		lobbyName := parts[0]
-		password := ""
-		if len(parts) == 3 {
-			password = parts[1]
-		}
-		desc := parts[2]
-		handleCreateLobby(conn, client, lobbyName, password, desc)
+		h.handleCreateLobby(conn, client, cmd)
 	case strings.HasPrefix(cmd, "/join "):
-		content := strings.TrimSpace(strings.TrimPrefix(cmd, "/join "))
-		parts := strings.SplitN(content, " ", 2)
-		lobbyName := parts[0]
-		password := ""
-		if len(parts) == 2 {
-			password = parts[1]
-		}
-		handleJoinLobby(conn, client, lobbyName, password)
+		h.handleJoinLobby(conn, client, cmd)
 	case strings.HasPrefix(cmd, "/sp"):
-		content := strings.TrimSpace(strings.TrimPrefix(cmd, "/sp"))
-		if content == "" || content == "default" {
-			client.userProfile = profilePics["default"]
-			conn.Write([]byte(ColorGreen + "Profile picture reset to default.\n" + ColorReset))
-			return
-		}
-		if content == "list" {
-			showProfilePics(conn)
-			return
-		}
-		pic, exists := profilePics[content]
-		if !exists {
-			conn.Write([]byte(ColorRed + "Profile picture not found. Use /sp list to see available options.\n" + ColorReset))
-			return
-		}
-		client.userProfile = pic
-		conn.Write([]byte(ColorGreen + fmt.Sprintf("Profile picture changed to: %s\n", pic) + ColorReset))
+		h.handleSetProfile(conn, client, cmd)
 	default:
-		conn.Write([]byte(ColorRed + "Unknown command. Type /help to see available commands.\n" + ColorReset))
+		conn.Write([]byte(ColorRed + "Unknown command. Type /help for available commands.\n" + ColorReset))
 	}
 }
+
+func (h *CommandHandler) handleAICommand(conn net.Conn, client *models.Client, cmd string) {
+	content := strings.TrimPrefix(cmd, "/ai ")
+	userText := strings.TrimSpace(content)
+	
+	if userText == "" {
+		conn.Write([]byte(ColorRed + "Usage: /ai <your question>\n" + ColorReset))
+		return
+	}
+
+	if len(userText) > 1000 {
+		conn.Write([]byte(ColorRed + "AI question too long. Max: 1000 characters\n" + ColorReset))
+		return
+	}
+
+	if ai.GetAPIKey() == "" {
+		conn.Write([]byte(ColorRed + "AI is not available on this server\n" + ColorReset))
+		return
+	}
+
+	conn.Write([]byte(ColorMagenta + "[AI] Thinking...\n" + ColorReset))
+	h.ClientManager.BroadcastToLobby(client.CurrentLobby,
+		fmt.Sprintf("%s%s%s asked AI: %s", ColorCyan, client.Username, ColorReset, userText))
+
+	reply, err := ai.HandleAIChat(userText, client.CurrentLobby, client.Username,
+		h.LobbyManager.GetConversations(), h.LobbyManager.GetConversationsMutex(),
+		h.LobbyManager.GetLobbyContext)
+
+	if err != nil {
+		log.Printf("AI error for user %s: %v", client.Username, err)
+		errMsg := ai.FormatAIError(err)
+		conn.Write([]byte(ColorRed + errMsg + "\n" + ColorReset))
+		return
+	}
+
+	h.ClientManager.BroadcastToLobby(client.CurrentLobby,
+		fmt.Sprintf("%s[AI Response to %s]%s\n%s", ColorMagenta, client.Username, ColorReset, reply))
+}
+
+func (h *CommandHandler) showLobbyUsers(conn net.Conn, client *models.Client) {
+	users := h.ClientManager.GetLobbyUsers(client.CurrentLobby)
+	msg := ColorCyan + fmt.Sprintf("\n=== Users in '%s' (%d) ===\n", client.CurrentLobby, len(users)) + ColorReset
+	for _, user := range users {
+		msg += fmt.Sprintf("  %s %s%s%s\n", user.UserProfile, ColorWhite, user.Username, ColorReset)
+	}
+	msg += "\n"
+	conn.Write([]byte(msg))
+}
+
+func showHelpMessage(conn net.Conn) {
+	helpMsg := ColorCyan + "\n=== Available Commands ===\n" + ColorReset
+	helpMsg += "  /users  - Show users in current lobby\n"
+	helpMsg += "  /lobbies - List all lobbies\n"
+	helpMsg += "  /create <name> [password] <desc> - Create new lobby\n"
+	helpMsg += "  /join <name> [password] - Join a lobby\n"
+	helpMsg += "  /sp <name> - Set profile picture\n"
+	helpMsg += "  /sp list - List available profile pictures\n"
+	helpMsg += "  /msg <user> <message> - Send private message\n"
+	helpMsg += "  /tag <user> <message> - Tag someone in lobby\n"
+	helpMsg += "  /ai <question> - Ask AI a question\n"
+	helpMsg += "  /setai <prompt> - Set custom AI (creator only)\n"
+	helpMsg += "  /quit   - Disconnect from server\n\n"
+	conn.Write([]byte(helpMsg))
+}
+
+// Color constants
+const (
+	ColorReset   = "\033[0m"
+	ColorRed     = "\033[31m"
+	ColorGreen   = "\033[32m"
+	ColorYellow  = "\033[33m"
+	ColorBlue    = "\033[34m"
+	ColorMagenta = "\033[35m"
+	ColorCyan    = "\033[36m"
+	ColorWhite   = "\033[37m"
+	ColorBold    = "\033[1m"
+)

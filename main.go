@@ -1,10 +1,12 @@
 package main
 
 import (
-	"chat-server/server"
 	"fmt"
 	"log"
 	"net"
+
+	"chat-server/server"
+	"chat-server/server/ai"
 )
 
 func main() {
@@ -14,28 +16,24 @@ func main() {
 		log.Fatal("Error starting server:", err)
 	}
 	defer listener.Close()
-	
-	server.CreateGenralLobby()
 
-	// Initialize AI (optional - won't fail if no API key)
-	if err := server.InitAI(); err != nil {
-		fmt.Println(server.ColorYellow + "⚠ AI features disabled (no API key)" + server.ColorReset)
+	// Initialize server
+	srv := server.NewServer()
+	srv.Start()
+
+	// Initialize AI (optional)
+	if err := ai.InitAI(); err != nil {
+		fmt.Println("\033[33m⚠ AI features disabled (no API key)\033[0m")
 	} else {
-		fmt.Println(server.ColorGreen + "✓ AI features enabled" + server.ColorReset)
+		fmt.Println("\033[32m✓ AI features enabled\033[0m")
 	}
 
-	fmt.Println(server.ColorGreen + "==================================" + server.ColorReset)
-	fmt.Println(server.ColorCyan + "  GO CHAT SERVER RUNNING" + server.ColorReset)
-	fmt.Println(server.ColorGreen + "==================================" + server.ColorReset)
-	fmt.Printf("Listening on port %s%s%s\n", server.ColorYellow, port, server.ColorReset)
+	fmt.Println("\033[32m==================================\033[0m")
+	fmt.Println("\033[36m  GO CHAT SERVER RUNNING\033[0m")
+	fmt.Println("\033[32m==================================\033[0m")
+	fmt.Printf("Listening on port \033[33m%s\033[0m\n", port)
 	fmt.Println("Default lobby 'general' created")
-	fmt.Println("Rate limiting enabled:")
-	fmt.Printf("  - Max %d messages per %v\n", server.MaxMessagesPerWindow, server.RateLimitWindow)
-	fmt.Printf("  - Max %d connections per IP\n", server.MaxConnectionsPerIP)
 	fmt.Println("Waiting for connections...\n")
-
-	go server.BroadcastMessages()
-	go server.CleanupInactiveLobbyContexts()  // ADD THIS LINE
 
 	for {
 		conn, err := listener.Accept()
@@ -43,6 +41,6 @@ func main() {
 			log.Println("Failed to accept connection:", err)
 			continue
 		}
-		go server.HandleConnection(conn)
+		go srv.HandleConnection(conn)
 	}
 }
