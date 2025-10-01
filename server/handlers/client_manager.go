@@ -3,7 +3,7 @@ package handlers
 import (
 	"net"
 	"sync"
-
+"time"
 	"chat-server/server/models"
 )
 
@@ -81,55 +81,58 @@ func (cm *ClientManager) GetLobbyUsers(lobbyName string) []*models.Client {
 
 // BroadcastToLobby broadcasts a message to all users in a lobby
 func (cm *ClientManager) BroadcastToLobby(lobbyName string, text string) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
 
-	var deadConns []net.Conn
-	message := ColorBlue + ColorBold + "[LOBBY] " + ColorReset + text + "\n"
+    var deadConns []net.Conn
+    
+    message := "\r\033[K" + ColorBlue + ColorBold + "[LOBBY] " + ColorReset + text + "\n" + ColorCyan + "> " + ColorReset
 
-	for conn, client := range cm.clients {
-		if client.CurrentLobby == lobbyName {
-			client.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-			_, err := client.Conn.Write([]byte(message))
-			client.Conn.SetWriteDeadline(time.Time{})
-			if err != nil {
-				deadConns = append(deadConns, conn)
-			}
-		}
-	}
+    for conn, client := range cm.clients {
+        if client.CurrentLobby == lobbyName {
+            client.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+            _, err := client.Conn.Write([]byte(message))
+            client.Conn.SetWriteDeadline(time.Time{})
+            if err != nil {
+                deadConns = append(deadConns, conn)
+            }
+        }
+    }
 
-	for _, conn := range deadConns {
-		delete(cm.clients, conn)
-		conn.Close()
-	}
+    for _, conn := range deadConns {
+        delete(cm.clients, conn)
+        conn.Close()
+    }
 }
 
 // BroadcastMessage broadcasts a user message to lobby
 func (cm *ClientManager) BroadcastMessage(msg *models.Message, formatFn func(string, string, string, string, string, string, string) string) {
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
 
-	var deadConns []net.Conn
+    var deadConns []net.Conn
 
-	for conn, client := range cm.clients {
-		if client.CurrentLobby == msg.From.CurrentLobby {
-			formattedMsg := formatFn(msg.From.UserProfile, msg.From.Username, msg.Text,
-				ColorYellow, ColorWhite, ColorCyan, ColorReset)
-			client.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-			_, err := client.Conn.Write([]byte(message))
-			client.Conn.SetWriteDeadline(time.Time{})
-			if err != nil {
-				deadConns = append(deadConns, conn)
-			}
-		}
-	}
+    for conn, client := range cm.clients {
+        if client.CurrentLobby == msg.From.CurrentLobby {
+            formattedMsg := formatFn(msg.From.UserProfile, msg.From.Username, msg.Text,
+                ColorYellow, ColorWhite, ColorCyan, ColorReset)
+            
+            fullMsg := "\r\033[K" + formattedMsg + ColorCyan + "> " + ColorReset
+            
+            client.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+            _, err := client.Conn.Write([]byte(fullMsg))  
+            client.Conn.SetWriteDeadline(time.Time{})
+            if err != nil {
+                deadConns = append(deadConns, conn)
+            }
+        }
+    }
 
-	for _, conn := range deadConns {
-		delete(cm.clients, conn)
-		conn.Close()
-	}
+    for _, conn := range deadConns {
+        delete(cm.clients, conn)
+        conn.Close()
+    }
 }
-
 // ClientsSnapshot returns a slice copy of all connected clients
 func (cm *ClientManager) ClientsSnapshot() []*models.Client {
 	cm.mu.RLock()
