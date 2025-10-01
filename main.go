@@ -1,46 +1,80 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net"
+        "fmt"
+        "log"
+        "net"
+        "time"
 
-	"chat-server/server"
-	"chat-server/server/ai"
+        "chat-server/server"
+        "chat-server/server/ai"
+        "chat-server/server/utils"
 )
 
 func main() {
-	port := ":8080"
-	listener, err := net.Listen("tcp", port)
-	if err != nil {
-		log.Fatal("Error starting server:", err)
-	}
-	defer listener.Close()
+        port := ":8080"
+        listener, err := net.Listen("tcp", port)
+        if err != nil {
+                log.Fatal("Error starting server:", err)
+        }
+        defer listener.Close()
 
-	// Initialize server
-	srv := server.NewServer()
-	srv.Start()
+        // Initialize server
+        srv := server.NewServer()
+        srv.Start()
 
-	// Initialize AI (optional)
-	if err := ai.InitAI(); err != nil {
-		fmt.Println("\033[33m⚠ AI features disabled (no API key)\033[0m")
-	} else {
-		fmt.Println("\033[32m✓ AI features enabled\033[0m")
-	}
+        // Display startup banner
+        displayStartupBanner(port)
 
-	fmt.Println("\033[32m==================================\033[0m")
-	fmt.Println("\033[36m  GO CHAT SERVER RUNNING\033[0m")
-	fmt.Println("\033[32m==================================\033[0m")
-	fmt.Printf("Listening on port \033[33m%s\033[0m\n", port)
-	fmt.Println("Default lobby 'general' created")
-	fmt.Println("Waiting for connections...\n")
+        // Initialize AI (optional)
+        if err := ai.InitAI(); err != nil {
+                fmt.Println(utils.ColorYellow + "    [!] AI features disabled (no API key)" + utils.ColorReset)
+        } else {
+                fmt.Println(utils.ColorGreen + "    [✓] AI features enabled" + utils.ColorReset)
+        }
 
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Println("Failed to accept connection:", err)
-			continue
-		}
-		go srv.HandleConnection(conn)
-	}
+        fmt.Println(utils.ColorCyan + "\n    >> Server ready - Waiting for connections...\n" + utils.ColorReset)
+
+        for {
+                conn, err := listener.Accept()
+                if err != nil {
+                        log.Println("Failed to accept connection:", err)
+                        continue
+                }
+                go srv.HandleConnection(conn)
+        }
+}
+
+func displayStartupBanner(port string) {
+        bannerLines := []string{
+                "",
+                "  ═════════════════════════════════════════════",
+                "",
+                "    ██████╗  ██████╗       ██████╗██╗  ██╗ █████╗ ████████╗",
+                "   ██╔════╝ ██╔═══██╗     ██╔════╝██║  ██║██╔══██╗╚══██╔══╝",
+                "   ██║  ███╗██║   ██║     ██║     ███████║███████║   ██║   ",
+                "   ██║   ██║██║   ██║     ██║     ██╔══██║██╔══██║   ██║   ",
+                "   ╚██████╔╝╚██████╔╝     ╚██████╗██║  ██║██║  ██║   ██║   ",
+                "    ╚═════╝  ╚═════╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ",
+                "",
+                "              " + utils.Bold + "Realtime Chat Server v1.0" + utils.ColorReset + utils.ColorPurple,
+                "",
+                "  ═════════════════════════════════════════════",
+                "",
+        }
+
+        // Clear screen
+        fmt.Print("\033[2J\033[H")
+
+        // Animate banner
+        for _, line := range bannerLines {
+                fmt.Println(utils.ColorPurple + line + utils.ColorReset)
+                time.Sleep(35 * time.Millisecond)
+        }
+
+        // Server info - simple and clean
+        fmt.Println(utils.ColorCyan + "    Port:        " + utils.ColorGold + port + utils.ColorReset)
+        fmt.Println(utils.ColorCyan + "    Lobby:       " + utils.ColorGreen + "general" + utils.ColorReset)
+        fmt.Println(utils.ColorCyan + "    Protocol:    " + utils.ColorWhite + "TCP" + utils.ColorReset)
+        fmt.Println()
 }

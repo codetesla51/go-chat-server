@@ -8,6 +8,7 @@ import (
 
 	"chat-server/server/ai"
 	"chat-server/server/models"
+	"chat-server/server/utils"
 )
 
 // LobbyManager manages chat lobbies
@@ -215,7 +216,16 @@ func (lm *LobbyManager) GetRecentMessages(lobbyName string, duration time.Durati
 		if msg.Timestamp.Before(since) {
 			continue
 		}
-		result += fmt.Sprintf("%s %s: %s\n", msg.UserProfile, msg.Username, msg.Text)
+		result += utils.FormatMessage(
+    msg.UserProfile,
+    msg.Username,
+    msg.Text,
+    utils.ColorYellow,
+    utils.ColorWhite,
+    utils.ColorCyan,
+    utils.ColorReset,
+    msg.Timestamp,
+)
 	}
 
 	return result
