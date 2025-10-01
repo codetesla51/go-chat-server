@@ -11,11 +11,11 @@ import (
 
 type fakeConn struct{ remote string }
 
-func (f fakeConn) Read([]byte) (int, error)  { return 0, nil }
-func (f fakeConn) Write([]byte) (int, error) { return 0, nil }
-func (f fakeConn) Close() error              { return nil }
-func (f fakeConn) LocalAddr() net.Addr       { return nil }
-func (f fakeConn) RemoteAddr() net.Addr      { return fakeAddr{f.remote} }
+func (f fakeConn) Read([]byte) (int, error)         { return 0, nil }
+func (f fakeConn) Write([]byte) (int, error)        { return 0, nil }
+func (f fakeConn) Close() error                     { return nil }
+func (f fakeConn) LocalAddr() net.Addr              { return nil }
+func (f fakeConn) RemoteAddr() net.Addr             { return fakeAddr{f.remote} }
 func (f fakeConn) SetDeadline(time.Time) error      { return nil }
 func (f fakeConn) SetReadDeadline(time.Time) error  { return nil }
 func (f fakeConn) SetWriteDeadline(time.Time) error { return nil }
@@ -32,7 +32,6 @@ func TestGetIP(t *testing.T) {
 		t.Errorf("expected 127.0.0.1, got %s", ip)
 	}
 }
-
 
 func TestCanSendMessage(t *testing.T) {
 	now := time.Now()
@@ -68,7 +67,6 @@ func TestCanSendMessage(t *testing.T) {
 		t.Errorf("expected message count 1, got %d", c.MessageCount)
 	}
 }
-
 
 func TestIPConnections(t *testing.T) {
 	ipConnections = make(map[string]int) // reset global state

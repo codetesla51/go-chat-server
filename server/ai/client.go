@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/joho/godotenv"
 	"io"
 	"net/http"
 	"os"
@@ -15,6 +16,9 @@ var geminiAPIKey string
 
 // InitAI initializes the AI client with API key from environment
 func InitAI() error {
+	if err := godotenv.Load(); err != nil {
+		return fmt.Errorf("Warning: .env file not found.")
+	}
 	geminiAPIKey = os.Getenv("GEMINI_API_KEY")
 	if geminiAPIKey == "" {
 		return fmt.Errorf("GEMINI_API_KEY environment variable not set")
@@ -164,19 +168,19 @@ func HandleAIChat(userPrompt, lobbyName, username string,
 
 // FormatAIError formats AI errors for user display
 func FormatAIError(err error) string {
-    if err == nil {
-        return "AI features enabled"  
-    }
+	if err == nil {
+		return "AI features enabled"
+	}
 
-    e := err.Error()
-    switch {
-    case strings.Contains(e, "rate limit"):
-        return "AI Error: Rate limit reached. Please wait and try again."
-    case strings.Contains(e, "quota"):
-        return "AI Error: Quota reached. Try later."
-    case strings.Contains(e, "invalid prompt"):
-        return "AI Error: Your prompt is invalid."
-    default:
-        return "AI Error: Please try again later."
-    }
+	e := err.Error()
+	switch {
+	case strings.Contains(e, "rate limit"):
+		return "AI Error: Rate limit reached. Please wait and try again."
+	case strings.Contains(e, "quota"):
+		return "AI Error: Quota reached. Try later."
+	case strings.Contains(e, "invalid prompt"):
+		return "AI Error: Your prompt is invalid."
+	default:
+		return "AI Error: Please try again later."
+	}
 }
