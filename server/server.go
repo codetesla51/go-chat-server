@@ -103,7 +103,7 @@ messages <- Message{
 		log.Println("Connection error:", err)
 	}
 }
-func handleCreateLobby(conn net.Conn, client *Client, lobbyName string, password string) {
+func handleCreateLobby(conn net.Conn, client *Client, lobbyName , password, desc string ) {
 	if lobbyName == "" {
 		conn.Write([]byte(ColorRed + "Usage: /create <lobby_name> [password]\n" + ColorReset))
 		return
@@ -116,16 +116,16 @@ func handleCreateLobby(conn net.Conn, client *Client, lobbyName string, password
 		conn.Write([]byte(ColorRed + "Lobby already exists!\n" + ColorReset))
 		return
 	}
-
 	newLobby := &Lobby{
 		name:      lobbyName,
 		isPrivate: password != "",
 		password:  password,
 		creator:   client.username,
+		desc : desc ,
 		aiPrompt:  "", 
 	}
 	lobbies[lobbyName] = newLobby
-fmt.Print(newLobby)
+ fmt.Print(newLobby)
 	lobbyType := "public"
 	if newLobby.isPrivate {
 		lobbyType = "private"
@@ -443,10 +443,11 @@ func formatTimeAgo(t time.Time) string {
 }
 func CreateGenralLobby() {
 	lobbies["general"] = &Lobby{
-		name:      "general",
-		isPrivate: false,
-		password:  "",
-		creator:   "server",
-		aiPrompt:  "", // Uses default prompt
+		name:       "general",
+		isPrivate:  false,
+		password:   "",
+		creator:    "server",
+		desc: "Welcome to the General Lobby — this is where everyone spawns when they enter the server. Feel free to introduce yourself, chat with others, and make new friends. Remember to be kind and respectful, avoid spamming or flooding the chat, and help keep the lobby a fun and friendly space for everyone. Enjoy your time here and make the most of your stay!",
+		aiPrompt:   "", // Uses default prompt
 	}
 }

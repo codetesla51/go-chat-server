@@ -83,7 +83,7 @@ func handleAichatWithContext(apiKey, userPrompt, lobbyName, username string) (st
 		conv.messages = conv.messages[len(conv.messages)-20:]
 	}
 
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=%s", apiKey)
+url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=%s", apiKey)
 
 	payload := map[string]interface{}{
 		"contents": conv.messages,

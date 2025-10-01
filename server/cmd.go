@@ -99,13 +99,14 @@ if err != nil {
 		handlePrivateMessage(client, target, message)
 	case strings.HasPrefix(cmd, "/create "):
 		content := strings.TrimSpace(strings.TrimPrefix(cmd, "/create "))
-		parts := strings.SplitN(content, " ", 2)
+		parts := strings.SplitN(content, " ", 3)
 		lobbyName := parts[0]
 		password := ""
-		if len(parts) == 2 {
+		if len(parts) == 3 {
 			password = parts[1]
 		}
-		handleCreateLobby(conn, client, lobbyName, password)
+		desc := parts[2]
+		handleCreateLobby(conn, client, lobbyName, password, desc)
 	case strings.HasPrefix(cmd, "/join "):
 		content := strings.TrimSpace(strings.TrimPrefix(cmd, "/join "))
 		parts := strings.SplitN(content, " ", 2)

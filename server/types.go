@@ -12,6 +12,7 @@ type Lobby struct {
 	isPrivate bool
 	password  string
 	creator   string
+	desc string 
 	aiPrompt  string
 }
 

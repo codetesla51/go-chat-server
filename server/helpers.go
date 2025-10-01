@@ -54,9 +54,10 @@ func showAllLobbies(conn net.Conn) {
 	lobbiesMutex.RLock()
 	defer lobbiesMutex.RUnlock()
 
-	msg := ColorCyan + fmt.Sprintf("\n=== Available Lobbies (%d) ===\n", len(lobbies)) + ColorReset
+	msg := ColorCyan + fmt.Sprintf("\n=== Available Lobbies (%d) ===\n\n", len(lobbies)) + ColorReset
 
 	for name, lobby := range lobbies {
+		// Count users in this lobby
 		userCount := 0
 		clientsMutex.RLock()
 		for _, client := range clients {
@@ -76,13 +77,20 @@ func showAllLobbies(conn net.Conn) {
 			aiStatus = "custom AI"
 		}
 
-		msg += fmt.Sprintf("  %s%-15s%s [%s] [%s] - %d users (created by %s)\n",
-			ColorWhite, name, ColorReset, privacyText, aiStatus, userCount, lobby.creator)
+		desc := lobby.desc
+		if desc == "" {
+			desc = "No description"
+		}
+
+		// Format for readability
+		msg += fmt.Sprintf("%sLobby: %s%s\n", ColorWhite, name, ColorReset)
+		msg += fmt.Sprintf("  Privacy: %s | AI: %s | Users: %d | Created by: %s\n",
+			privacyText, aiStatus, userCount, lobby.creator)
+		msg += fmt.Sprintf("  Description: %s\n\n", desc)
 	}
-	msg += "\n"
+
 	conn.Write([]byte(msg))
 }
-
 func showLobbyUsers(conn net.Conn, client *Client) {
 	clientsMutex.RLock()
 	defer clientsMutex.RUnlock()
