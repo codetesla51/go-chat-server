@@ -47,6 +47,7 @@ type LobbyContext struct {
 type Message struct {
 	from Client
 	text string
+	timestamp time.Time
 }
 
 // Response struct for AI API

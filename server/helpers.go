@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net"
+	"time"
 )
 
 func isUsernameTaken(username string) bool {
@@ -33,16 +34,20 @@ func showHelpMessage(conn net.Conn) {
 	conn.Write([]byte(helpMsg))
 }
 
-func formatMessage(senderProfile string, username, text string) string {
-	content := fmt.Sprintf("%s%s %s%s\n  %s╰─>%s %s\n",
-		ColorYellow,
-		senderProfile,
-		username,
-		ColorReset,
-		ColorCyan,
-		ColorReset,
-		text,
-	)
+func formatMessage(senderProfile string, username, text string , timestamp time.Time) string {
+timeAgo := formatTimeAgo(timestamp)	
+content := fmt.Sprintf("%s%s %s%s [%s%s%s]\n  %s╰─>%s %s\n",
+        ColorYellow,
+        senderProfile,
+        username,
+        ColorReset,
+        ColorWhite,
+        timeAgo,
+        ColorReset,
+        ColorCyan,
+        ColorReset,
+        text,
+    )
 	return content
 }
 func showAllLobbies(conn net.Conn) {

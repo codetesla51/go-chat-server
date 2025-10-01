@@ -92,8 +92,12 @@ conn.Write([]byte(recent ))
 		// Store message in lobby context for AI awareness
 		storeLobbyMessage(newClient.currentLobby,newClient.userProfile, newClient.username, text)
 
-		messages <- Message{from: *newClient, text: text}
-	}
+messages <- Message{
+    from: *newClient, 
+    text: text,
+    timestamp: time.Now(),  
+}
+}
 
 	if err := scanner.Err(); err != nil {
 		log.Println("Connection error:", err)
@@ -243,7 +247,8 @@ func getLobbyContext(lobbyName string) string {
 		username := msg.username
 		text := msg.text
 		userProfile := msg.userProfile
-		contextStr = formatMessage(userProfile,username,text)
+		
+		contextStr = formatMessage(userProfile,username,text,msg.timestamp)
 	}
 return contextStr
 }
@@ -263,13 +268,12 @@ func getRecentMessages(lobbyName string, duration time.Duration) string {
 
     since := time.Now().Add(-duration)
     var contextStr strings.Builder
-
+    
     for _, msg := range ctx.recentMessages {
         if msg.timestamp.Before(since) {
             continue
         }
-        // Use a formatting function if you want colors or profile icons
-        contextStr.WriteString(formatMessage(msg.userProfile, msg.username, msg.text))
+        contextStr.WriteString(formatMessage(msg.userProfile, msg.username, msg.text,msg.timestamp))
     }
 
     return contextStr.String()
@@ -283,7 +287,7 @@ func BroadcastMessages() {
 
 		for conn, client := range clients {
 			if client.currentLobby == msg.from.currentLobby {
-				formattedMsg := formatMessage(msg.from.userProfile, msg.from.username, msg.text)
+				formattedMsg := formatMessage(msg.from.userProfile, msg.from.username, msg.text,msg.timestamp)
 				_, err := client.conn.Write([]byte(formattedMsg))
 				if err != nil {
 					deadConns = append(deadConns, conn)
@@ -324,35 +328,6 @@ func broadcastLobbyMessage(lobbyName string, text string) {
 
 
 
-func handlePrivateMessage(sender *Client, targetName, message string) {
-	clientsMutex.RLock()
-defer clientsMutex.RUnlock()
-	target, exists := clientsByUsername[targetName]
-    if !exists {
-        sender.conn.Write([]byte(ColorRed + "User not found.\n" + ColorReset))
-        return
-    }
-
-	// Message to receiver
-	targetMsg := fmt.Sprintf("%s[DM]%s %s%s%s —» You\n  ╰─> %s\n",
-		ColorMagenta,
-		ColorReset,
-		ColorCyan,
-		sender.username,
-		ColorReset,
-		message)
-	target.conn.Write([]byte(targetMsg))
-
-	// Confirmation to sender
-	senderMsg := fmt.Sprintf("%s[DM]%s You —» %s%s%s\n  ╰─> %s\n",
-		ColorMagenta,
-		ColorReset,
-		ColorCyan,
-		targetName,
-		ColorReset,
-		message)
-	sender.conn.Write([]byte(senderMsg))
-}
 func handleTagMessage(sender *Client, targetName, message string) {
     clientsMutex.RLock()
     target, exists := clientsByUsername[targetName]
@@ -363,19 +338,109 @@ func handleTagMessage(sender *Client, targetName, message string) {
         return
     }
 
-    // Format for lobby
-    broadcastText := fmt.Sprintf("%s%s —» %s: %s%s", ColorBold, sender.username, targetName,ColorReset, message)
-    broadcastLobbyMessage(sender.currentLobby, broadcastText)
+    // Store for AI context
+    fullMessage := fmt.Sprintf("@%s: %s", targetName, message)
+    storeLobbyMessage(sender.currentLobby, sender.userProfile, sender.username, fullMessage)
 
-    // Notification for tagged user
-    if target.conn != nil && target != sender {
-        target.conn.Write([]byte(fmt.Sprintf("%s%s replied to you: %s%s\n", ColorMagenta, sender.username, message, ColorReset)))
+    taggedMsg := fmt.Sprintf("%s%s %s%s @%s%s%s\n  %s╰─>%s %s\n",
+        ColorYellow,
+        sender.userProfile,
+        ColorCyan,
+        sender.username,
+        ColorMagenta,
+        targetName,
+        ColorReset,
+        ColorCyan,
+        ColorReset,
+        message)
+
+    // Broadcast to entire lobby
+    clientsMutex.RLock()
+    for _, client := range clients {
+        if client.currentLobby == sender.currentLobby {
+            client.conn.Write([]byte(taggedMsg))
+        }
     }
+    clientsMutex.RUnlock()
 
-    // Notification for sender themselves
-    sender.conn.Write([]byte(fmt.Sprintf("%sYou%s —» %s: %s\n", ColorMagenta, ColorReset, targetName, message)))
+    if target.conn != nil && target.username != sender.username {
+        notification := fmt.Sprintf("%s✦ %s tagged you%s\n", 
+            ColorMagenta, 
+            sender.username, 
+            ColorReset)
+        target.conn.Write([]byte(notification))
+    }
 }
 
+func handlePrivateMessage(sender *Client, targetName, message string) {
+    clientsMutex.RLock()
+    target, exists := clientsByUsername[targetName]
+    clientsMutex.RUnlock()
+
+    if !exists {
+        sender.conn.Write([]byte(ColorRed + "User not found.\n" + ColorReset))
+        return
+    }
+
+    // Message to receiver
+    targetMsg := fmt.Sprintf("%s[DM]%s %s%s%s %s—»%s You\n  %s╰─>%s %s\n",
+        ColorMagenta,
+        ColorReset,
+        ColorCyan,
+        sender.username,
+        ColorReset,
+        ColorMagenta,
+        ColorReset,
+        ColorCyan,
+        ColorReset,
+        message)
+    target.conn.Write([]byte(targetMsg))
+
+    // Confirmation to sender
+    senderMsg := fmt.Sprintf("%s[DM]%s You %s—»%s %s%s%s\n  %s╰─>%s %s\n",
+        ColorMagenta,
+        ColorReset,
+        ColorMagenta,
+        ColorReset,
+        ColorCyan,
+        targetName,
+        ColorReset,
+        ColorCyan,
+        ColorReset,
+        message)
+    sender.conn.Write([]byte(senderMsg))
+}
+func formatTimeAgo(t time.Time) string {
+    elapsed := time.Since(t)
+    
+    if elapsed < time.Second {
+        return "just now"  
+    } else if elapsed < time.Minute {
+        seconds := int(elapsed.Seconds())
+        if seconds == 1 {
+            return "1s ago"
+        }
+        return fmt.Sprintf("%ds ago", seconds)
+    } else if elapsed < time.Hour {
+        minutes := int(elapsed.Minutes())
+        if minutes == 1 {
+            return "1m ago"
+        }
+        return fmt.Sprintf("%dm ago", minutes)
+    } else if elapsed < 24*time.Hour {
+        hours := int(elapsed.Hours())
+        if hours == 1 {
+            return "1h ago"
+        }
+        return fmt.Sprintf("%dh ago", hours)
+    } else {
+        days := int(elapsed.Hours() / 24)
+        if days == 1 {
+            return "1d ago"
+        }
+        return fmt.Sprintf("%dd ago", days)
+    }
+}
 func CreateGenralLobby() {
 	lobbies["general"] = &Lobby{
 		name:      "general",
