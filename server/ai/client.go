@@ -164,15 +164,19 @@ func HandleAIChat(userPrompt, lobbyName, username string,
 
 // FormatAIError formats AI errors for user display
 func FormatAIError(err error) string {
-	e := err.Error()
-	switch {
-	case strings.Contains(e, "rate limit"):
-		return "AI Error: Rate limit reached. Please wait and try again."
-	case strings.Contains(e, "quota"):
-		return "AI Error: Quota reached. Try later."
-	case strings.Contains(e, "invalid prompt"):
-		return "AI Error: Your prompt is invalid."
-	default:
-		return "AI Error: Please try again later."
-	}
+    if err == nil {
+        return "AI features enabled"  
+    }
+
+    e := err.Error()
+    switch {
+    case strings.Contains(e, "rate limit"):
+        return "AI Error: Rate limit reached. Please wait and try again."
+    case strings.Contains(e, "quota"):
+        return "AI Error: Quota reached. Try later."
+    case strings.Contains(e, "invalid prompt"):
+        return "AI Error: Your prompt is invalid."
+    default:
+        return "AI Error: Please try again later."
+    }
 }
