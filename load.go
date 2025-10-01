@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	
+
 	"math/rand"
 	"net"
 	"sync"
@@ -56,21 +56,21 @@ var commands = []string{
 func main() {
 	serverAddr := "localhost:8080"
 	numUsers := 10
-	
+
 	fmt.Println("╔═══════════════════════════════════════════╗")
 	fmt.Println("║   CHAT SERVER LOAD TESTER                 ║")
 	fmt.Println("╚═══════════════════════════════════════════╝")
 	fmt.Printf("\nTarget: %s\n", serverAddr)
 	fmt.Printf("Spawning %d simulated users...\n\n", numUsers)
-	
+
 	startTime = time.Now()
-	
+
 	// Start stats reporter
 	go reportStats()
-	
+
 	// Spawn users gradually
 	var wg sync.WaitGroup
-	
+
 	// Spawn in waves to avoid overwhelming the server instantly
 	batchSize := 100
 	for i := 0; i < numUsers; i += batchSize {
@@ -78,53 +78,53 @@ func main() {
 		if end > numUsers {
 			end = numUsers
 		}
-		
+
 		for j := i; j < end; j++ {
 			wg.Add(1)
 			go spawnUser(j, serverAddr, &wg)
 			time.Sleep(time.Millisecond * 2) // Small delay between spawns
 		}
-		
+
 		fmt.Printf("Spawned batch %d-%d\n", i, end)
 		time.Sleep(time.Millisecond * 100) // Delay between batches
 	}
-	
+
 	// Keep test running for a while
 	fmt.Println("\n✓ All users spawned. Running for 60 seconds...\n")
 	time.Sleep(60 * time.Second)
-	
+
 	fmt.Println("\n⏹ Test complete. Shutting down...")
 	printFinalStats()
 }
 
 func spawnUser(id int, serverAddr string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	
+
 	conn, err := net.Dial("tcp", serverAddr)
 	if err != nil {
 		atomic.AddInt64(&errors, 1)
 		return
 	}
 	defer conn.Close()
-	
+
 	user := &User{
 		id:       id,
 		conn:     conn,
 		username: fmt.Sprintf("user%d", id),
 	}
-	
+
 	atomic.AddInt64(&connectedUsers, 1)
-	
+
 	// Set username
 	_, err = conn.Write([]byte(user.username + "\n"))
 	if err != nil {
 		atomic.AddInt64(&errors, 1)
 		return
 	}
-	
+
 	// Start reading messages
 	go readMessages(user)
-	
+
 	// Simulate user behavior
 	simulateUserBehavior(user)
 }
@@ -139,19 +139,19 @@ func readMessages(user *User) {
 func simulateUserBehavior(user *User) {
 	// Random behavior: some users are active, some lurk
 	activityLevel := rand.Float64()
-	
+
 	if activityLevel < 0.3 {
 		// 30% are lurkers (read only, rarely send)
 		time.Sleep(time.Duration(rand.Intn(120)) * time.Second)
 		return
 	}
-	
+
 	// Active users send messages periodically
 	ticker := time.NewTicker(time.Duration(2+rand.Intn(10)) * time.Second)
 	defer ticker.Stop()
-	
+
 	timeout := time.After(time.Duration(30+rand.Intn(60)) * time.Second)
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -190,7 +190,7 @@ func sendCommand(user *User) {
 func reportStats() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		printCurrentStats()
 	}
@@ -202,9 +202,9 @@ func printCurrentStats() {
 	sent := atomic.LoadInt64(&messagesSent)
 	received := atomic.LoadInt64(&messagesReceived)
 	errs := atomic.LoadInt64(&errors)
-	
+
 	msgRate := float64(sent) / elapsed
-	
+
 	fmt.Printf("⏱ %.0fs | 👥 %d users | 📤 %d sent (%.1f msg/s) | 📥 %d received | ❌ %d errors\n",
 		elapsed, connected, sent, msgRate, received, errs)
 }
@@ -215,7 +215,7 @@ func printFinalStats() {
 	sent := atomic.LoadInt64(&messagesSent)
 	received := atomic.LoadInt64(&messagesReceived)
 	errs := atomic.LoadInt64(&errors)
-	
+
 	fmt.Println("\n╔═══════════════════════════════════════════╗")
 	fmt.Println("║   FINAL RESULTS                           ║")
 	fmt.Println("╚═══════════════════════════════════════════╝")
@@ -224,11 +224,11 @@ func printFinalStats() {
 	fmt.Printf("📤 Messages Sent: %d (%.1f msg/s)\n", sent, float64(sent)/elapsed)
 	fmt.Printf("📥 Messages Received: %d\n", received)
 	fmt.Printf("❌ Errors: %d\n", errs)
-	
+
 	if errs > 0 {
 		fmt.Printf("\n⚠️  Error rate: %.2f%%\n", float64(errs)/float64(sent)*100)
 	}
-	
+
 	// Performance assessment
 	fmt.Println("\n📊 Performance Assessment:")
 	if errs < 10 && connected > 4000 {
@@ -240,6 +240,6 @@ func printFinalStats() {
 	} else {
 		fmt.Println("   ❌ POOR - Server needs optimization")
 	}
-	
+
 	fmt.Println()
 }
