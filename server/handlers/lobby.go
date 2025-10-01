@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
-
+"time"
 	"chat-server/server/models"
 )
 
@@ -61,8 +61,12 @@ func (h *CommandHandler) handleJoinLobby(conn net.Conn, client *models.Client, c
 
 	client.CurrentLobby = lobbyName
 	conn.Write([]byte(ColorGreen + fmt.Sprintf("Joined lobby '%s'\n", lobbyName) + ColorReset))
+	
+			
 	h.ClientManager.BroadcastToLobby(lobbyName, 
 		fmt.Sprintf("%s%s%s has joined the lobby", ColorGreen, client.Username, ColorReset))
+		recent := h.LobbyManager.GetRecentMessages(lobbyName, 10*time.Minute)
+			conn.Write([]byte(recent))
 }
 
 func (h *CommandHandler) handleSetAI(conn net.Conn, client *models.Client, cmd string) {
