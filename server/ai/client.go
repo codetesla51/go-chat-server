@@ -7,9 +7,17 @@ import
   "net/http"
   "encoding/json"
   	"bytes"
-  	
+  	"os"
   "io"
   )
+  var geminiAPIKey string 
+  func InitAI() error {
+	geminiAPIKey = os.Getenv("GEMINI_API_KEY")
+	if geminiAPIKey == "" {
+		return fmt.Errorf("GEMINI_API_KEY environment variable not set")
+	}
+	return nil
+}
 func handleAichatWithContext(apiKey, userPrompt, lobbyName, username string) (string, error) {
 	// Get the appropriate AI guideline for this lobby
 	guideline := getAIPromptForLobby(lobbyName)
@@ -30,7 +38,7 @@ func handleAichatWithContext(apiKey, userPrompt, lobbyName, username string) (st
 	defer conv.mu.Unlock()
 
 	// Clear old conversations (after 30 min of inactivity)
-	if time.Since(conv.lastActive) > 30*time.Minute {
+	if time.Since(conv.lastActive) > AIContextTimeout {
 		conv.messages = []map[string]interface{}{}
 	}
 	conv.lastActive = time.Now()
@@ -79,11 +87,11 @@ func handleAichatWithContext(apiKey, userPrompt, lobbyName, username string) (st
 	})
 
 	// Limit history to last 20 messages to avoid token limits
-	if len(conv.messages) > 20 {
+	if len(conv.messages) > MaxAIContextMessages {
 		conv.messages = conv.messages[len(conv.messages)-20:]
 	}
-
-url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=%s", apiKey)
+url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", 
+    GeminiModel, apiKey)
 
 	payload := map[string]interface{}{
 		"contents": conv.messages,

@@ -11,7 +11,7 @@ func isUsernameTaken(username string) bool {
 	defer clientsMutex.RUnlock()
 
 	for _, client := range clients {
-		if client.username == username {
+		if client.Username == username {
 			return true
 		}
 	}
@@ -124,6 +124,7 @@ func removeClient(conn net.Conn) {
 	client, exists := clients[conn]
 	if exists {
 		delete(clients, conn)
+		delete(clientsByUsername, client.username)
 	}
 	clientsMutex.Unlock()
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"os"
 	"log"
 )
 
@@ -37,20 +36,22 @@ func handleCommand(conn net.Conn, cmd string, client *Client) {
 			return
 		}
 
-		apiKey := os.Getenv("GEMINI_API_KEY")
-		if apiKey == "" {
-			conn.Write([]byte(ColorRed + "AI API Key not configured\n" + ColorReset))
+		if len(userText) > MaxMessageLength {
+			conn.Write([]byte(ColorRed + "AI question too long. Max length: 1000 characters\n" + ColorReset))
+			return
+		}
+
+		if geminiAPIKey == "" {
+			conn.Write([]byte(ColorRed + "AI is not available on this server\n" + ColorReset))
 			return
 		}
 
 		conn.Write([]byte(ColorMagenta + "[AI] Thinking...\n" + ColorReset))
 
-		// Broadcast to lobby that user asked AI
 		broadcastLobbyMessage(client.currentLobby,
 			fmt.Sprintf("%s%s%s asked AI: %s", ColorCyan, client.username, ColorReset, userText))
 
-		reply, err := handleAichatWithContext(apiKey, userText, client.currentLobby, client.username)
-
+reply, err := handleAichatWithContext(geminiAPIKey, userText, client.currentLobby, client.username)
 errMsg := "AI Error: Please try again later." 
 
 if err != nil {

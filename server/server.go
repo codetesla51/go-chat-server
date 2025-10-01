@@ -41,7 +41,11 @@ func HandleConnection(conn net.Conn) {
 		if username == "" {
 			username = conn.RemoteAddr().String()
 		}
-
+ valid, errMsg := isValidUsername(username)
+		if !valid {
+			conn.Write([]byte(ColorRed + errMsg + "\n" + ColorReset))
+			continue
+		}
 		// Check if username is taken
 		if !isUsernameTaken(username) {
 			break
@@ -73,7 +77,11 @@ conn.Write([]byte(recent ))
 		if text == "" {
 			continue
 		}
-
+		if len(text) > MaxMessageLength {
+			conn.Write([]byte(ColorRed + fmt.Sprintf("Message too long (max %d characters)\n", MaxMessageLength) + ColorReset))
+			continue
+		}
+		
 		// Handle commands
 		if strings.HasPrefix(text, "/") {
 			handleCommand(conn, text, newClient)
@@ -240,7 +248,7 @@ func getLobbyContext(lobbyName string) string {
 		return ""
 	}
 
-	var contextStr string
+	var contextStr strings.Builder
 
 
 	for _, msg := range ctx.recentMessages {
@@ -248,9 +256,9 @@ func getLobbyContext(lobbyName string) string {
 		text := msg.text
 		userProfile := msg.userProfile
 		
-		contextStr = formatMessage(userProfile,username,text,msg.timestamp)
+		contextStr.WriteString(formatMessage(userProfile,username,text,msg.timestamp))
 	}
-return contextStr
+return contextStr.String()
 }
 func getRecentMessages(lobbyName string, duration time.Duration) string {
     contextsMutex.RLock()
@@ -449,5 +457,33 @@ func CreateGenralLobby() {
 		creator:    "server",
 		desc: "Welcome to the General Lobby — this is where everyone spawns when they enter the server. Feel free to introduce yourself, chat with others, and make new friends. Remember to be kind and respectful, avoid spamming or flooding the chat, and help keep the lobby a fun and friendly space for everyone. Enjoy your time here and make the most of your stay!",
 		aiPrompt:   "", // Uses default prompt
+	}
+}
+func CleanupInactiveLobbyContexts() {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+	
+	for range ticker.C {
+		contextsMutex.Lock()
+		for name, ctx := range lobbyContexts {
+			if name == "general" {
+				continue 
+			}
+			
+			ctx.mu.RLock()
+			shouldDelete := false
+			if len(ctx.recentMessages) > 0 {
+				lastMsg := ctx.recentMessages[len(ctx.recentMessages)-1]
+				if time.Since(lastMsg.timestamp) > 2*time.Hour {
+					shouldDelete = true
+				}
+			}
+			ctx.mu.RUnlock()
+			
+			if shouldDelete {
+				delete(lobbyContexts, name)
+			}
+		}
+		contextsMutex.Unlock()
 	}
 }

@@ -20,8 +20,17 @@ const (
 	MaxMessagesPerWindow = 5
 	RateLimitWindow      = 10 * time.Second
 	MaxConnectionsPerIP  = 10
-)
 
+	MaxMessageLength      = 1000
+	MaxAIContextMessages  = 20
+	MaxLobbyContextAge    = 2 * time.Hour
+	AIContextTimeout      = 30 * time.Minute
+	MaxUsernameLength     = 20
+	MinUsernameLength     = 2
+	GeminiModel = "gemini-2.5-flash"    
+    // GeminiModel = "gemini-2.5-pro"  
+    // GeminiModel = "gemini-2.5-flash-lite"
+)
 var profilePics = map[string]string{
 	"default":  "[@_@]",
 	"cat":      "(=^･^=)",
