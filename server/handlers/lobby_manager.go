@@ -9,6 +9,7 @@ import (
 	"chat-server/server/ai"
 	"chat-server/server/models"
 	"chat-server/server/utils"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // LobbyManager manages chat lobbies
@@ -53,11 +54,14 @@ func (lm *LobbyManager) CreateLobby(name, password, desc, creator string) error 
 	if _, exists := lm.lobbies[name]; exists {
 		return fmt.Errorf("lobby already exists")
 	}
-
+	hashedPassword, err := hashPassword(password)
+	if err != nil {
+		return fmt.Errorf("failed to secure lobby password")
+	}
 	lm.lobbies[name] = &models.Lobby{
 		Name:      name,
 		IsPrivate: password != "",
-		Password:  password,
+		Password:  hashedPassword,
 		Creator:   creator,
 		Desc:      desc,
 		AIPrompt:  "",
@@ -75,7 +79,7 @@ func (lm *LobbyManager) JoinLobby(name, password string) error {
 		return fmt.Errorf("lobby does not exist")
 	}
 
-	if lobby.IsPrivate && lobby.Password != password {
+	if lobby.IsPrivate && !checkPassword(lobby.Password, password) {
 		return fmt.Errorf("incorrect password for private lobby")
 	}
 
@@ -266,8 +270,29 @@ func (lm *LobbyManager) CleanupInactiveContexts() {
 
 			if shouldDelete {
 				delete(lm.lobbyContexts, name)
+				delete(lm.lobbyConversations, name)
+				ai.ClearAIPromptForLobby(name)
 			}
 		}
 		lm.contextMu.Unlock()
 	}
+}
+func hashPassword(password string) (string, error) {
+	if password == "" {
+		return "", nil
+	}
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+// checkPassword verifies a password against a hash
+func checkPassword(hashedPassword, password string) bool {
+	if hashedPassword == "" && password == "" {
+		return true
+	}
+	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
+	return err == nil
 }

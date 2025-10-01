@@ -1,14 +1,14 @@
 package handlers
 
 import (
+	"chat-server/server/ai"
+	"chat-server/server/middleware"
+	"chat-server/server/models"
+	"context "
 	"fmt"
 	"log"
 	"net"
 	"strings"
-
-	"chat-server/server/ai"
-	"chat-server/server/middleware"
-	"chat-server/server/models"
 )
 
 // CommandHandler holds dependencies for command handling
@@ -89,7 +89,10 @@ func (h *CommandHandler) handleAICommand(conn net.Conn, client *models.Client, c
 	h.ClientManager.BroadcastToLobby(client.CurrentLobby,
 		fmt.Sprintf("%s%s%s asked AI: %s", ColorCyan, client.Username, ColorReset, userText))
 
-	reply, err := ai.HandleAIChat(userText, client.CurrentLobby, client.Username,
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	reply, err := ai.HandleAIChat(ctx, userText, client.CurrentLobby, client.Username,
 		h.LobbyManager.GetConversations(), h.LobbyManager.GetConversationsMutex(),
 		h.LobbyManager.GetLobbyContext)
 

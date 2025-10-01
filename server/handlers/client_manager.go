@@ -89,7 +89,9 @@ func (cm *ClientManager) BroadcastToLobby(lobbyName string, text string) {
 
 	for conn, client := range cm.clients {
 		if client.CurrentLobby == lobbyName {
+			client.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			_, err := client.Conn.Write([]byte(message))
+			client.Conn.SetWriteDeadline(time.Time{})
 			if err != nil {
 				deadConns = append(deadConns, conn)
 			}
@@ -113,7 +115,9 @@ func (cm *ClientManager) BroadcastMessage(msg *models.Message, formatFn func(str
 		if client.CurrentLobby == msg.From.CurrentLobby {
 			formattedMsg := formatFn(msg.From.UserProfile, msg.From.Username, msg.Text,
 				ColorYellow, ColorWhite, ColorCyan, ColorReset)
-			_, err := client.Conn.Write([]byte(formattedMsg))
+			client.Conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+			_, err := client.Conn.Write([]byte(message))
+			client.Conn.SetWriteDeadline(time.Time{})
 			if err != nil {
 				deadConns = append(deadConns, conn)
 			}

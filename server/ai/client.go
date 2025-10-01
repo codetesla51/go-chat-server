@@ -2,6 +2,7 @@ package ai
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/joho/godotenv"
@@ -32,7 +33,7 @@ func GetAPIKey() string {
 }
 
 // HandleAIChat processes AI requests with conversation context
-func HandleAIChat(userPrompt, lobbyName, username string,
+func HandleAIChat(ctx context.Context, userPrompt, lobbyName, username string,
 	conversations map[string]*ConversationHistory,
 	convMutex interface{},
 	getLobbyContextFn func(string) string) (string, error) {
@@ -124,7 +125,7 @@ func HandleAIChat(userPrompt, lobbyName, username string,
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", err
 	}

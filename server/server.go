@@ -44,9 +44,15 @@ func (s *Server) Start() {
 }
 
 // HandleConnection handles a new client connection
-func (s *Server) HandleConnection(conn net.Conn) {
+	func (s *Server) HandleConnection(conn net.Conn) {
 	ip := middleware.GetIP(conn)
-
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC recovered in HandleConnection: %v\nConnection: %s", r, conn.RemoteAddr())
+			conn.Write([]byte(utils.ColorRed + "Server error occurred. Disconnecting.\n" + utils.ColorReset))
+			conn.Close()
+		}
+	}()
 	if !middleware.CanAcceptConnection(ip) {
 		conn.Write([]byte(utils.ColorRed + "Too many connections from your IP. Try again later.\n" + utils.ColorReset))
 		conn.Close()
@@ -54,6 +60,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	}
 
 	middleware.IncrementIPConnection(ip)
+	conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
 	defer middleware.DecrementIPConnection(ip)
 
 	sendWelcomeBanner(conn)
@@ -109,6 +116,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 
 	// Read messages from client
 	for scanner.Scan() {
+	  conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
 		text := strings.TrimSpace(scanner.Text())
 		if text == "" {
 			continue
@@ -145,6 +153,11 @@ func (s *Server) HandleConnection(conn net.Conn) {
 }
 
 func (s *Server) broadcastMessages() {
+  defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC in broadcastMessages: %v", r)
+		}
+	}()
 	for msg := range s.messages {
 		s.clientManager.BroadcastMessage(msg, func(profile, username, text, colorYellow, colorWhite, colorCyan, colorReset string) string {
 			return utils.FormatMessage(profile, username, text, colorYellow, colorWhite, colorCyan, colorReset, msg.Timestamp)
