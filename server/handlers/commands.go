@@ -69,7 +69,7 @@ func (h *CommandHandler) HandleCommand(conn net.Conn, cmd string, client *models
 func (h *CommandHandler) handleAICommand(conn net.Conn, client *models.Client, cmd string) {
 	content := strings.TrimPrefix(cmd, "/ai ")
 	userText := strings.TrimSpace(content)
-	
+
 	if userText == "" {
 		conn.Write([]byte(ColorRed + "Usage: /ai <your question>\n" + ColorReset))
 		return

@@ -11,7 +11,7 @@ import (
 func (h *CommandHandler) handlePrivateMessage(conn net.Conn, sender *models.Client, cmd string) {
 	content := strings.TrimPrefix(cmd, "/msg ")
 	parts := strings.SplitN(content, " ", 2)
-	
+
 	if len(parts) < 2 {
 		conn.Write([]byte(ColorRed + "Usage: /msg <username> <message>\n" + ColorReset))
 		return
@@ -40,7 +40,7 @@ func (h *CommandHandler) handlePrivateMessage(conn net.Conn, sender *models.Clie
 func (h *CommandHandler) handleTagCommand(conn net.Conn, sender *models.Client, cmd string) {
 	content := strings.TrimPrefix(cmd, "/tag ")
 	parts := strings.SplitN(content, " ", 2)
-	
+
 	if len(parts) < 2 {
 		conn.Write([]byte(ColorRed + "Usage: /tag <username> <message>\n" + ColorReset))
 		return

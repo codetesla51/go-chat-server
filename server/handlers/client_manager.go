@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	
 	"net"
 	"sync"
 
@@ -35,7 +34,7 @@ func (cm *ClientManager) AddClient(conn net.Conn, client *models.Client) {
 func (cm *ClientManager) RemoveClient(conn net.Conn) *models.Client {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	
+
 	client, exists := cm.clients[conn]
 	if exists {
 		delete(cm.clients, conn)
@@ -70,7 +69,7 @@ func (cm *ClientManager) IsUsernameTaken(username string) bool {
 func (cm *ClientManager) GetLobbyUsers(lobbyName string) []*models.Client {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
-	
+
 	var users []*models.Client
 	for _, client := range cm.clients {
 		if client.CurrentLobby == lobbyName {
@@ -125,4 +124,16 @@ func (cm *ClientManager) BroadcastMessage(msg *models.Message, formatFn func(str
 		delete(cm.clients, conn)
 		conn.Close()
 	}
+}
+
+// ClientsSnapshot returns a slice copy of all connected clients
+func (cm *ClientManager) ClientsSnapshot() []*models.Client {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+
+	clients := make([]*models.Client, 0, len(cm.clients))
+	for _, client := range cm.clients {
+		clients = append(clients, client)
+	}
+	return clients
 }

@@ -60,24 +60,24 @@ var profilePics = map[string]string{
 
 func (h *CommandHandler) handleSetProfile(conn net.Conn, client *models.Client, cmd string) {
 	content := strings.TrimSpace(strings.TrimPrefix(cmd, "/sp"))
-	
+
 	if content == "" || content == "default" {
 		client.UserProfile = profilePics["default"]
 		conn.Write([]byte(ColorGreen + "Profile picture reset to default.\n" + ColorReset))
 		return
 	}
-	
+
 	if content == "list" {
 		showProfilePics(conn)
 		return
 	}
-	
+
 	pic, exists := profilePics[content]
 	if !exists {
 		conn.Write([]byte(ColorRed + "Profile picture not found. Use /sp list to see options.\n" + ColorReset))
 		return
 	}
-	
+
 	client.UserProfile = pic
 	conn.Write([]byte(ColorGreen + fmt.Sprintf("Profile picture changed to: %s\n", pic) + ColorReset))
 }

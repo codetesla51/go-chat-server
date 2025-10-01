@@ -28,19 +28,22 @@ func GetAPIKey() string {
 }
 
 // HandleAIChat processes AI requests with conversation context
-func HandleAIChat(userPrompt, lobbyName, username string, 
-	conversations map[string]*ConversationHistory, 
-	convMutex interface{}, 
+func HandleAIChat(userPrompt, lobbyName, username string,
+	conversations map[string]*ConversationHistory,
+	convMutex interface{},
 	getLobbyContextFn func(string) string) (string, error) {
-	
+
 	if geminiAPIKey == "" {
 		return "", fmt.Errorf("AI not initialized")
 	}
 
 	guideline := GetAIPromptForLobby(lobbyName)
-	
+
 	// Type assertion for mutex (passed as interface{} to avoid circular import)
-	mutex, ok := convMutex.(interface{ Lock(); Unlock() })
+	mutex, ok := convMutex.(interface {
+		Lock()
+		Unlock()
+	})
 	if !ok {
 		return "", fmt.Errorf("invalid mutex type")
 	}

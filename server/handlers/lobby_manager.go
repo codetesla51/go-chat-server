@@ -34,7 +34,7 @@ func NewLobbyManager() *LobbyManager {
 func (lm *LobbyManager) CreateDefaultLobby() {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
-	
+
 	lm.lobbies["general"] = &models.Lobby{
 		Name:      "general",
 		IsPrivate: false,
@@ -217,15 +217,15 @@ func (lm *LobbyManager) GetRecentMessages(lobbyName string, duration time.Durati
 			continue
 		}
 		result += utils.FormatMessage(
-    msg.UserProfile,
-    msg.Username,
-    msg.Text,
-    utils.ColorYellow,
-    utils.ColorWhite,
-    utils.ColorCyan,
-    utils.ColorReset,
-    msg.Timestamp,
-)
+			msg.UserProfile,
+			msg.Username,
+			msg.Text,
+			utils.ColorYellow,
+			utils.ColorWhite,
+			utils.ColorCyan,
+			utils.ColorReset,
+			msg.Timestamp,
+		)
 	}
 
 	return result
