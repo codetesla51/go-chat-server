@@ -74,7 +74,7 @@ GO-CHAT is designed to handle typical chat workloads efficiently:
 Minimum:
 - 512MB RAM
 - 1 CPU core
-- Linux/macOS/Windows
+- Linux/macOS
 
 Recommended:
 - 1GB+ RAM for larger deployments
