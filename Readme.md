@@ -94,26 +94,10 @@ Recommended:
 
 ### Installation
 
-**Option 1: Download Pre-built Binary (Recommended)**
-
-Download the latest release for your platform:
-
-```bash
-# Linux/macOS
-wget https://github.com/uthmandev/go-chat/releases/latest/download/go-chat
-chmod +x go-chat
-./go-chat
-
-# Windows
-# Download go-chat.exe from releases page and run it
-```
-
-**Option 2: Build from Source**
-
 Clone the repository:
 
 ```bash
-git clone https://github.com/uthmandev/go-chat.git
+git clone https://github.com/codetesla51/go-chat-server
 cd go-chat
 ```
 
@@ -836,26 +820,6 @@ For public-facing servers, use a reverse proxy like nginx or caddy to handle TLS
 
 The future of GO-CHAT depends on community feedback and contributions. As an open-source project, features are driven by user needs and requests.
 
-**Potential Features (Community Driven):**
-
-Feel free to open an issue or pull request for any of these or suggest your own:
-
-- Message persistence (database integration)
-- File sharing capabilities
-- Voice/video chat support
-- Web-based client interface
-- Mobile client applications
-- Bot API for third-party integrations
-- Message reactions and threading
-- User roles and permissions system
-- Message search functionality
-- Logging and analytics dashboard
-- Kubernetes deployment configs
-- Docker compose setup
-- Webhook integrations
-- Custom themes and color schemes
-- End-to-end encryption
-- Multi-language support
 
 **Want a feature?** Open an issue on GitHub describing your use case and we'll discuss implementation!
 
