@@ -86,7 +86,7 @@ func showProfilePics(conn net.Conn) {
 	msg := ColorCyan + "\n=== Available Profile Pictures ===\n" + ColorReset
 	msg += ColorYellow + "Usage: /sp <name>\n\n" + ColorReset
 	for name, pic := range profilePics {
-		msg += fmt.Sprintf("  %s%-10s%s → %s\n", ColorWhite, name, ColorReset, pic)
+		msg += fmt.Sprintf("  %s%-10s%s –» %s\n", ColorWhite, name, ColorReset, pic)
 	}
 	msg += "\n"
 	conn.Write([]byte(msg))
