@@ -37,7 +37,7 @@ type LobbyMessage struct {
 // LobbyContext stores recent messages for context
 type LobbyContext struct {
 	RecentMessages []LobbyMessage
-	Mu             interface{} // sync.RWMutex
+	Mu             sync.RWMutex // sync.RWMutex
 }
 
 // Message struct for broadcasting
